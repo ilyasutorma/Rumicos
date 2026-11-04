@@ -1,0 +1,84 @@
+# Expected serial output for `cargo xtask qemu-test`.
+#
+# Each non-comment line must appear in the kernel's serial output as a
+# SUBSTRING (never full-line equality — Limine's boot banner and the
+# kernel's single-letter boot-progress markers share the line with the
+# first message), and the lines must appear IN THIS ORDER.
+#
+# A `~` prefix marks a line whose position is only anchored to the last
+# unprefixed line above it: it must appear at-or-after that line, but its
+# order relative to the other `~` lines in the same group is not checked.
+# Use this for output whose interleaving legitimately depends on the
+# scheduler — the fork test's parent and child print concurrently, and
+# both orders have been observed on known-good boots.
+#
+# UPDATING THIS FILE: when a feature checkpoint legitimately changes the
+# boot output (e.g. init2.asm gains a new test that prints a new line),
+# run `cargo xtask qemu-test`, confirm from target/qemu-test-serial.log
+# that the new output is correct BY READING IT (not by pasting whatever
+# appeared), then add/adjust the lines here in the same commit as the
+# feature. Never delete a line just to make CI pass — a previously-green
+# line going missing is exactly the regression this file exists to catch.
+
+# PCI enumeration (virtio-net Part A): pci_report() scans the bus before the
+# scheduler starts, so these lines appear before "Hello Rumicos". On q35 with
+# `-device virtio-net-pci` the virtio device (vendor 0x1AF4) shows up with
+# decoded BARs and an MSI-X capability. BAR base addresses are firmware-
+# assigned (they vary with OVMF), so only base-independent facts are asserted:
+# the device identity, that a 64-bit MMIO BAR decoded, and the MSI-X table size.
+pci: enumerated 6 function(s)
+pci: 00:02.0 1af4:1000 class 02:00
+pci:   bar4 mmio
+pci:   msix capability, table size 4
+virtio: device 1af4:1000 found at 00:02.0
+
+# virtio-net driver (Part B): the driver binds to that device, reads its MAC
+# from device-config (QEMU's deterministic default 52:54:00:12:34:56), and
+# transmits one ARP probe, confirmed by the descriptor returning in the TX
+# used ring. The frame is also captured to target/virtio-capture.pcap.
+virtio-net: MAC 52:54:00:12:34:56
+virtio-net: tx self-test OK
+
+Hello Rumicos
+execve works!
+mmap: demand-zero page reads 0 before any write - OK
+mmap: write 0xAB then read back 0xAB - OK
+file mmap: initial content is 'P' from real file - OK
+file mmap: munmap writeback landed in file ('X') - OK
+signal: SIGUSR1 received
+signal: handler returned OK
+signal: callee-saved registers preserved - OK
+signals: all OK
+pipe: write/read through pipe - OK
+pipe: dup2 aliasing - OK
+wait: child running
+fork: child name intact after copy - OK
+wait: child exited with code 42 - OK
+~child: shared_byte inherited as 0x42 - OK
+~child: CoW write resolved, shared_byte='C' - OK
+~parent: shared_byte inherited as 0x42 - OK
+~parent: CoW write resolved, shared_byte='P' - OK
+
+# FPU/SSE state across context switch (Part B): init2's parent seeds xmm0..3
+# with a sentinel before forking; the child loads a different pattern and
+# runs concurrently. After wait4 (which forced a switch away and back), the
+# parent confirms its xmm bytes survived — proving the scheduler saves and
+# restores FPU state per thread. Without XSAVE/XRSTOR this reads FAIL.
+fpu: xmm survived context switch - OK
+
+# The userspace shell: init2's parent path reaps its CoW child, then
+# execve()s /bin/shell, whose self-test drives real fork/pipe/dup2/execve
+# /wait4 pipelines through the same parse+exec code the interactive REPL
+# uses (see userspace/shell/src/selftest.rs). Each command's output lands
+# before its "shell: ok" line because the shell wait4()s every stage first.
+hello pipeline
+shell: ok echo
+hello
+shell: ok pipe echo|cat
+piped twice
+shell: ok pipe echo|cat|cat
+shell: ok redirect > file
+shell: ok redirected file contents match
+redirected
+shell: ok redirect < file
+shell: self-test complete

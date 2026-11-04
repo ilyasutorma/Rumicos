@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rumicos — an operating system in Rust for network infrastructure</title>
+<meta name="description" content="Rumicos is an x86-64 operating system in Rust, developed for network appliances — routers, firewalls, and other network devices where a small, auditable, memory-safe codebase matters more than a broad application ecosystem.">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div id="page">
+
+<div id="banner">
+  <h1>Rumicos</h1>
+  <div class="sub">An operating system in Rust for network infrastructure.</div>
+</div>
+
+<div id="nav">
+  <a href="#about">About</a> |
+  <a href="#why">Why Rust</a> |
+  <a href="#status">Status</a> |
+  <a href="#roadmap">Roadmap</a> |
+  <a href="#model">License &amp; model</a> |
+  <a href="#contact">Contact</a> |
+  <a href="https://github.com/ScioFuturum/rumicos">GitHub</a> |
+  <a href="../">Русский</a>
+</div>
+
+<h2 id="about">About</h2>
+
+<p>Rumicos is an operating system for the x86-64 architecture, written from scratch
+in Rust. It is developed toward network appliances — routers, firewalls, and other
+network devices — where a small, auditable, memory-safe codebase matters more than
+broad application compatibility.</p>
+
+<p>Rumicos is not a fork or derivative of Linux, BSD, or any existing kernel. Every
+line of the kernel is original work. That means there is no inherited third-party
+codebase to take on trust or to audit separately.</p>
+
+<h2 id="why">Why Rust, and why network devices</h2>
+
+<p>Network code parses untrusted input by definition — packets arrive from outside.
+That is exactly why it remains a primary source of memory-safety vulnerabilities in
+conventional C-based network stacks. Rumicos is built in Rust, where memory safety is
+a structural property of the language rather than a matter of review discipline:
+whole classes of bugs (out-of-bounds access, use-after-free, data races) are ruled
+out at compile time.</p>
+
+<p>Because the system targets network devices rather than general-purpose computers,
+it does not need the broad driver surface, desktop environment, or application
+compatibility layers that make general-purpose kernels large and hard to audit. Less
+code means a smaller attack surface and a codebase that can actually be reviewed.</p>
+
+<h2 id="status">Status</h2>
+
+<p>The kernel foundation is complete and verified on real hardware under KVM. The
+network stack is the current development focus and is <b>not yet implemented</b>.
+Below is an honest status table, including what is not done.</p>
+
+<table class="status">
+  <tr><th>Layer</th><th>Status</th></tr>
+  <tr><td>Boot</td><td class="st-done">Limine protocol, UEFI, higher-half kernel</td></tr>
+  <tr><td>CPU</td><td class="st-done">GDT / TSS / IDT, SYSCALL/SYSRET, per-CPU state via GSBASE</td></tr>
+  <tr><td>Memory</td><td class="st-done">4-level paging, direct-map, PCID, NUMA-aware buddy allocator, SMAP/SMEP</td></tr>
+  <tr><td>SMP</td><td class="st-done">ACPI/MADT parsing, AP bring-up, x2APIC/xAPIC, TLB shootdown</td></tr>
+  <tr><td>Scheduling</td><td class="st-done">preemptive MLFQ, per-CPU run queues, work-stealing, futex, mutexes</td></tr>
+  <tr><td>Processes</td><td class="st-done">ELF64 loader, ring-3 execution, copy-on-write <tt>fork</tt>, <tt>execve</tt>, threads</td></tr>
+  <tr><td>Memory mapping</td><td class="st-done">anonymous and file-backed <tt>mmap</tt>, <tt>MAP_SHARED</tt>, page cache</td></tr>
+  <tr><td>Filesystem</td><td class="st-done">VFS, ramfs, devfs, CPIO initrd</td></tr>
+  <tr><td>IPC</td><td class="st-done"><tt>pipe</tt>, <tt>dup</tt>/<tt>dup2</tt>, POSIX signals, <tt>wait4</tt></td></tr>
+  <tr><td>Userspace</td><td class="st-done">interactive shell with pipelines and redirection, keyboard input</td></tr>
+  <tr><td>PCI bus / MSI-X</td><td class="st-wip">device enumeration and interrupt delivery — groundwork for the network card</td></tr>
+  <tr><td>Network stack</td><td class="st-no">not implemented — in development</td></tr>
+  <tr><td>Packet filtering</td><td class="st-no">not implemented — planned</td></tr>
+  <tr><td>Persistent storage</td><td class="st-no">not implemented — planned</td></tr>
+</table>
+
+<h3>How it is verified</h3>
+
+<p>Two independent layers. <b>Host unit tests</b> — pure logic (allocator arithmetic,
+page-table encoding, parsers) is deliberately separated from unsafe hardware-facing
+code so it can be tested without hardware. <b>Boot regression under QEMU</b> —
+<tt>cargo xtask qemu-test</tt> boots the real kernel image and checks its serial
+output against an expected-output file. The project additionally scans its own
+compiled binary for known-bad code generation: three distinct compiler
+miscompilation bugs were found during development, each silently corrupting data and
+detectable only by inspecting the generated machine code.</p>
+
+<h2 id="roadmap">Roadmap</h2>
+
+<ul>
+  <li><span class="stage done">[done]</span> kernel foundation: processes, memory,
+      multi-core, filesystem, shell, keyboard input</li>
+  <li><span class="stage wip">[in progress]</span> PCI bus and MSI-X interrupt
+      delivery — groundwork for the network adapter</li>
+  <li><span class="stage plan">[planned]</span> network card driver and Ethernet
+      frame transmit/receive</li>
+  <li><span class="stage plan">[planned]</span> network stack (IP, TCP/UDP)</li>
+  <li><span class="stage plan">[planned]</span> packet filtering and persistent
+      configuration storage</li>
+</ul>
+
+<h2 id="model">License and model</h2>
+
+<p>Rumicos is free software under the
+<a href="https://github.com/ScioFuturum/rumicos/blob/main/LICENSE">GNU GPL v3</a>.
+The source is fully open.</p>
+
+<p>The revenue model is not based on selling the operating system itself. The planned
+sources are commercial licensing for organizations that cannot accept the obligations
+of the GPL; technical support and maintenance; certification work; and integration of
+the system into a customer's hardware. None of these require closing the source to the
+community.</p>
+
+<h2 id="contact">Contact</h2>
+
+<p>The project is developed in the open; for collaboration, licensing, or use, write
+to <a href="mailto:Ilya.Sutorma-rumicos@yandex.ru">Ilya.Sutorma-rumicos@yandex.ru</a>.</p>
+
+<h2 id="build">Build and run</h2>
+
+<pre>rustup target add x86_64-unknown-none
+cargo build -p kernel --target x86_64-unknown-none --release   # build the kernel
+cargo xtask qemu-test                                          # boot it, check the output
+cargo test --workspace                                         # host unit tests</pre>
+
+<p>The source and engineering notes are in the
+<a href="https://github.com/ScioFuturum/rumicos">GitHub repository</a>.</p>
+
+<hr>
+<div id="footer">
+  Rumicos — <a href="https://github.com/ScioFuturum/rumicos">source on GitHub</a> —
+  <a href="../">Русская версия</a> — free software under the
+  <a href="https://github.com/ScioFuturum/rumicos/blob/main/LICENSE">GNU GPL v3</a>.
+</div>
+
+</div>
+</body>
+</html>
